@@ -547,12 +547,10 @@ def get_route_path(shapes, graph_obj_h, edges_hardclipped):
     shapes = shapes.dropna(subset=['shape_pt_lat_next', 'shape_pt_lon_next'])
 
     # Get the nearest edges and add shape-shape bearings
-    shapes['orig_edge'] = ox.nearest_edges(graph_obj_h, shapes.shape_pt_lon, shapes.shape_pt_lat)
-    shapes['dest_edge'] = ox.nearest_edges(graph_obj_h, shapes.shape_pt_lon_next, shapes.shape_pt_lat_next)
-    shapes['shape_bearing'] = ox.bearing.calculate_bearing(shapes.shape_pt_lat,
-                                                           shapes.shape_pt_lon,
-                                                           shapes.shape_pt_lat_next,
-                                                           shapes.shape_pt_lon_next)
+    shapes['orig_edge'] = [*map(tuple, ox.get_nearest_edges(graph_obj_h, shapes.shape_pt_lon, shapes.shape_pt_lat))]
+    shapes['dest_edge'] = [*map(tuple, ox.get_nearest_edges(graph_obj_h, shapes.shape_pt_lon_next, shapes.shape_pt_lat_next))]
+    shapes['shape_bearing'] = shapes.apply(lambda x: ox.bearing.get_bearing((x.shape_pt_lat, x.shape_pt_lon), (x.shape_pt_lat_next, x.shape_pt_lon_next)), axis = 1)
+    
     # Create reversed edges for origin and destination
     # of shape-shape for bearing comparison
     shapes['orig_u'] = shapes['orig_edge'].str[0]
@@ -622,7 +620,7 @@ def get_route_path(shapes, graph_obj_h, edges_hardclipped):
     # Get shortest path for each shape-shape in sequential order and keep unique segments
     od_shapes = shapes[['corrected_u', 'corrected_v']].drop_duplicates()
     od_shapes['order'] = list(range(1, len(od_shapes) + 1))
-    od_shapes['u'] = ox.shortest_path(graph_obj_h, od_shapes.corrected_u, od_shapes.corrected_v)
+    od_shapes['u'] = od_shapes.apply(lambda x: ox.shortest_path(G, x.corrected_u, x.corrected_v), axis = 1)
 
     od_shapes = od_shapes.explode('u')
     od_shapes['v'] = od_shapes.u.shift(-1)
